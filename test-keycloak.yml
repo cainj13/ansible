@@ -1,11 +1,30 @@
-- name: test my new module
-  connection: local
-  hosts: localhost
+---
+- hosts: localhost
+
+  vars_prompt:
+    - name: 'password'
+      prompt: 'Please enter the admin user password'
+      private: yes
+
   tasks:
-  - name: run the new module
+  - name: get all realms
     realms:
-      name: master
-    register: testout
-  - name: dump test output
+      username: admin
+      password: '{{ password }}'
+    no_log: True
+    register: realms_results
+
+  - name: dump realms results
     debug:
-      msg: '{{ testout }}'
+      msg: '{{ realms_results }}'
+
+  - name: get a single realm
+    realms:
+      username: admin
+      password: '{{ password }}'
+    no_log: True
+    register: single_realm_results
+
+  - name: dump single realm results
+    debug:
+      msg: '{{ single_realm_results }}'

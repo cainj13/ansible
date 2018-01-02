@@ -10,21 +10,17 @@ DOCUMENTATION = '''
 ---
 module: realms
 
-short_description: configure Keycloak realm settings
+short_description: gather facts about Keycloak realms
 
 version_added: "2.4"
 
 description:
-    - "Mechanism for the creation and manipulation of Keycloak realms, settings, and clients"
+    - "Gives the ability to collect information about keycloak realms"
 
 options:
     name:
         description:
-            - This is the message to send to the sample module
-        required: true
-    new:
-        description:
-            - Control to demo if the result of this module is changed or not
+            - Name of the realm for which the search is being performed
         required: false
 
 author:
@@ -32,80 +28,66 @@ author:
 '''
 
 EXAMPLES = '''
-# Pass in a message
-- name: Test with a message
-  my_new_test_module:
-    name: hello world
+# Get all realms
+  - name: get all realms
+    realms:
+      username: admin
+      password: '{{ password }}'
+    no_log: True
+    register: realms_results
 
-# pass in a message and have changed true
-- name: Test with a message and changed output
-  my_new_test_module:
-    name: hello world
-    new: true
-
-# fail the module
-- name: Test failure of the module
-  my_new_test_module:
-    name: fail me
+# Get a realm by name
+  - name: get a single realm
+    realms:
+      username: admin
+      password: '{{ password }}'
+    no_log: True
+    register: single_realm_results
 '''
 
 RETURN = '''
-original_message:
-    description: The original name param that was passed in
-    type: str
-message:
-    description: The output message that the sample module generates
+realms:
+    description: Keycloak realm json representation
+    type: dict
 '''
 
 from ansible.module_utils.basic import AnsibleModule
 from pycloak import admin, auth
 from requests.exceptions import ConnectionError
 
-def run_module():
-    # define the available arguments/parameters that a user can pass to
-    # the module
-    module_args = dict(
-        name=dict(type='str', required=False, default=None)
-    )
 
-    # seed the result dict in the object
-    # we primarily care about changed and state
-    # change is if this module effectively modified the target
-    # state will include any data that you want your module to pass back
-    # for consumption, for example, in a subsequent task
+def run_module():
+    module_args = dict(
+        username=dict(type='str', required=True),
+        password=dict(type='str', required=True),
+        host=dict(type='str', required=False, default='http://localhost:8080'),
+        auth_realm=dict(type='str', required=False, default='master'),
+        auth_client_id=dict(type='str', required=False, default='admin-cli'),
+        realm_search_name=dict(type='str', required=False, default=None)
+    )
     result = dict(
         changed=False
     )
-
-    # the AnsibleModule object will be our abstraction working with Ansible
-    # this includes instantiation, a couple of common attr would be the
-    # args/params passed to the execution, as well as if the module
-    # supports check mode
     module = AnsibleModule(
-        argument_spec=module_args,
-        supports_check_mode=True
+        argument_spec=module_args
     )
 
-    # if the user is working with this module in only check mode we do not
-    # want to make any changes to the environment, just return the current
-    # state with no modifications
-    if module.check_mode:
-        return result
-
     try:
-        session = auth.AuthSession('admin', 'password')
+        session = auth.AuthSession(module.params['username'], module.params['password'], host=module.params.get(
+            'host'), realm=module.params['auth_realm'], client_id=module.params['auth_client_id'])
         admin_client = admin.Admin(session)
 
-        if not module.params['name']:
+        if not module.params['realm_search_name']:
             result['realms'] = admin_client.realms
         else:
-            result['realms'] = [admin_client.realm(module.params['name']).backing_json]
+            result['realms'] = [admin_client.realm(module.params['realm_search_name']).backing_json]
     except ConnectionError as e:
-        module.fail_json(msg='Could not establish connection to Keycloak server')
+        module.fail_json(msg='Could not establish connection to Keycloak server.  Verify that the server is up and running, and reachable by the ansible host.')
+    except auth.AuthException as e:
+        module.fail_json(msg='Error attempting to authenticate to Keycloak server.  Validate that your username and password are correct and that the selected client is enabled for direct access grants.')
 
-    # in the event of a successful module execution, you will want to
-    # simple AnsibleModule.exit_json(), passing the key/value results
     module.exit_json(**result)
+
 
 def main():
     run_module()
