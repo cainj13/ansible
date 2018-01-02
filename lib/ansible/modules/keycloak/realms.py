@@ -31,18 +31,19 @@ EXAMPLES = '''
 # Get all realms
   - name: get all realms
     realms:
+      host: http://localhost:8080
       username: admin
       password: '{{ password }}'
     no_log: True
-    register: realms_results
 
 # Get a realm by name
   - name: get a single realm
     realms:
+      host: http://localhost:8080
       username: admin
       password: '{{ password }}'
+      realm_search_name: master
     no_log: True
-    register: single_realm_results
 '''
 
 RETURN = '''
