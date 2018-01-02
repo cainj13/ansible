@@ -4,8 +4,7 @@
   tasks:
   - name: run the new module
     realms:
-      name: 'hello'
-      new: true
+      name: master
     register: testout
   - name: dump test output
     debug:

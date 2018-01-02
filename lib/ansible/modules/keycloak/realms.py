@@ -1,21 +1,21 @@
 #!/usr/bin/python
 
 ANSIBLE_METADATA = {
-    'metadata_version': '1.1',
+    'metadata_version': '0.1.0',
     'status': ['preview'],
     'supported_by': 'community'
 }
 
 DOCUMENTATION = '''
 ---
-module: keycloak_cm
+module: realms
 
-short_description: This is my sample module
+short_description: configure Keycloak realm settings
 
 version_added: "2.4"
 
 description:
-    - "This is my longer description explaining my sample module"
+    - "Mechanism for the creation and manipulation of Keycloak realms, settings, and clients"
 
 options:
     name:
@@ -27,11 +27,8 @@ options:
             - Control to demo if the result of this module is changed or not
         required: false
 
-extends_documentation_fragment:
-    - azure
-
 author:
-    - Your Name (@yourhandle)
+    - Josh Cain (jcain@redhat.com)
 '''
 
 EXAMPLES = '''
@@ -61,13 +58,14 @@ message:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+from pycloak import admin, auth
+from requests.exceptions import ConnectionError
 
 def run_module():
     # define the available arguments/parameters that a user can pass to
     # the module
     module_args = dict(
-        name=dict(type='str', required=True),
-        new=dict(type='bool', required=False, default=False)
+        name=dict(type='str', required=False, default=None)
     )
 
     # seed the result dict in the object
@@ -76,9 +74,7 @@ def run_module():
     # state will include any data that you want your module to pass back
     # for consumption, for example, in a subsequent task
     result = dict(
-        changed=False,
-        original_message='',
-        message=''
+        changed=False
     )
 
     # the AnsibleModule object will be our abstraction working with Ansible
@@ -96,21 +92,16 @@ def run_module():
     if module.check_mode:
         return result
 
-    # manipulate or modify the state as needed (this is going to be the
-    # part where your module will do what it needs to do)
-    result['original_message'] = module.params['name']
-    result['message'] = 'goodbye'
+    try:
+        session = auth.AuthSession('admin', 'password')
+        admin_client = admin.Admin(session)
 
-    # use whatever logic you need to determine whether or not this module
-    # made any modifications to your target
-    if module.params['new']:
-        result['changed'] = True
-
-    # during the execution of the module, if there is an exception or a
-    # conditional state that effectively causes a failure, run
-    # AnsibleModule.fail_json() to pass in the message and the result
-    if module.params['name'] == 'fail me':
-        module.fail_json(msg='You requested this to fail', **result)
+        if not module.params['name']:
+            result['realms'] = admin_client.realms
+        else:
+            result['realms'] = [admin_client.realm(module.params['name']).backing_json]
+    except ConnectionError as e:
+        module.fail_json(msg='Could not establish connection to Keycloak server')
 
     # in the event of a successful module execution, you will want to
     # simple AnsibleModule.exit_json(), passing the key/value results
