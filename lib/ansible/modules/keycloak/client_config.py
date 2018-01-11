@@ -44,6 +44,7 @@ clients:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.keycloak_utils import get_session
 from pycloak import admin, auth, realm, client
 from requests.exceptions import ConnectionError
 import json
@@ -51,8 +52,8 @@ import os
 
 def run_module():
     module_args = dict(
-        username=dict(type='str', required=True),
-        password=dict(type='str', required=True),
+        username=dict(type='str', required=False),
+        password=dict(type='str', required=False),
         token=dict(type='str', required=False, default=None),
         host=dict(type='str', required=False, default='http://localhost:8080'),
         auth_realm=dict(type='str', required=False, default='master'),
@@ -68,15 +69,7 @@ def run_module():
     )
 
     try:
-        # TODO should probably centralize this 'get session' logic from common module params and environment vars
-        if module.params['token'] is not None:
-            session = auth.AuthSession(offline_token=module.params['offline_token'], host=module.params.get('host'), realm=module.params['auth_realm'], client_id=module.params['auth_client_id'])
-        elif os.environ['KEYCLOAK_OFFLINE_TOKEN'] is not None:
-            session = auth.AuthSession(offline_token=os.environ['KEYCLOAK_OFFLINE_TOKEN'], host=module.params.get('host'), realm=module.params['auth_realm'], client_id=module.params['auth_client_id'])
-        else:
-            session = auth.AuthSession(module.params['username'], module.params['password'], host=module.params.get('host'), realm=module.params['auth_realm'], client_id=module.params['auth_client_id'])
-
-
+        session = get_session(module.params)
         admin_client = admin.Admin(session)
         realm = admin_client.realm(module.params['realm'])
 
